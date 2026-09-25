@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Generador DeCA</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="theme-color" content="#16202b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DeCA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --ink: #16202b;
+    --ink-soft: #4a5768;
+    --paper: #fbfaf7;
+    --panel: #ffffff;
+    --line: #dfdcd2;
+    --amber: #d98a1f;
+    --amber-deep: #a66513;
+    --green: #2f6b4f;
+    --red: #b4402c;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --disp: 'Space Grotesk', 'Inter', sans-serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --radius: 3px;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ink: #eceae4;
+      --ink-soft: #a9a49a;
+      --paper: #171512;
+      --panel: #201d19;
+      --line: #38342c;
+      --amber: #e6a13b;
+      --green: #57a37e;
+      --red: #e0715a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eceae4;
+    --ink-soft: #a9a49a;
+    --paper: #171512;
+    --panel: #201d19;
+    --line: #38342c;
+    --amber: #e6a13b;
+    --green: #57a37e;
+    --red: #e0715a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    scroll-padding-top: env(safe-area-inset-top, 0px);
+  }
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+    line-height: 1.5;
+  }
+  a { color: var(--amber-deep); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+  header.top {
+    border-bottom: 1px solid var(--line);
+    padding: 22px 0 18px;
+  }
+  header.top .row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark {
+    font-family: var(--mono); font-weight: 600; font-size: 13px;
+    background: var(--ink); color: var(--paper); padding: 3px 7px; border-radius: 2px; letter-spacing: 0.04em;
+  }
+  h1 { font-family: var(--disp); font-size: 26px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-soft); font-size: 14px; max-width: 60ch; margin-top: 4px; }
+  .legal-tag { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); text-align: right; line-height: 1.6; }
+  .legal-tag b { color: var(--ink); font-weight: 600; }
+
+  .deadline {
+    margin-top: 14px; display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--amber-deep);
+  }
+  .deadline .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex: none; }
+
+  main { padding: 30px 0 60px; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 26px; align-items: start; }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+  section.card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 22px 24px; margin-bottom: 20px;
+  }
+  section.card h2 {
+    font-family: var(--disp); font-size: 15px; margin: 0 0 3px; font-weight: 600;
+  }
+  section.card .hint { color: var(--ink-soft); font-size: 12.5px; margin: 0 0 16px; }
+
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .fields.one { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.span2 { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+  label .opt { font-weight: 400; opacity: 0.75; }
+  input, textarea, select {
+    font-family: var(--sans); font-size: 14px; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
+    padding: 8px 10px; width: 100%;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: 2px solid var(--amber); outline-offset: -1px; border-color: var(--amber);
+  }
+  textarea { resize: vertical; min-height: 54px; font-family: var(--sans); }
+
+  .toggle-row { display: flex; gap: 18px; margin: 4px 0 16px; flex-wrap: wrap; }
+  .toggle-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); cursor: pointer; }
+  .toggle-row input[type=checkbox] { width: auto; accent-color: var(--amber-deep); }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button {
+    font-family: var(--sans); font-weight: 600; font-size: 13.5px; cursor: pointer;
+    border-radius: 2px; padding: 10px 16px; border: 1px solid transparent;
+  }
+  button.primary { background: var(--ink); color: var(--paper); }
+  button.primary:hover { background: var(--amber-deep); }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  button.ghost:hover { border-color: var(--ink); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .msg { font-size: 12.5px; margin-top: 10px; padding: 8px 10px; border-radius: 2px; display: none; }
+  .msg.show { display: block; }
+  .msg.err { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .msg.ok { background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); }
+
+  /* preview column */
+  .preview-sticky { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+  .doc {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 18px 20px; font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+  }
+  .doc .doc-head { border-bottom: 1px dashed var(--line); padding-bottom: 10px; margin-bottom: 10px; }
+  .doc .doc-title { font-family: var(--disp); font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .doc .doc-id { color: var(--ink-soft); margin-top: 3px; }
+  .doc .doc-sec { margin-bottom: 9px; }
+  .doc .doc-sec .k { color: var(--ink-soft); text-transform: none; }
+  .doc .doc-sec .v { color: var(--ink); word-break: break-word; }
+  .doc .doc-sec .v.empty { color: var(--ink-soft); font-style: italic; }
+  .doc-qr { display: flex; align-items: center; gap: 10px; margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .doc-qr canvas, .doc-qr img { width: 64px; height: 64px; border: 1px solid var(--line); }
+  .doc-qr .url { font-size: 10px; color: var(--ink-soft); word-break: break-all; }
+
+  .history { margin-top: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-soft); font-weight: 500; font-size: 11.5px; }
+  td.mono { font-family: var(--mono); font-size: 11.5px; }
+  .empty-row td { color: var(--ink-soft); font-style: italic; padding: 14px 8px; }
+  .row-actions button { padding: 4px 8px; font-size: 11.5px; }
+
+  details.guide { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 20px; }
+  details.guide summary {
+    cursor: pointer; padding: 16px 20px; font-family: var(--disp); font-weight: 600; font-size: 14.5px;
+    list-style: none; display: flex; justify-content: space-between; align-items: center;
+  }
+  details.guide summary::-webkit-details-marker { display: none; }
+  details.guide summary::after { content: '+'; font-family: var(--mono); color: var(--ink-soft); font-size: 18px; }
+  details.guide[open] summary::after { content: '−'; }
+  .guide-body { padding: 0 20px 20px; color: var(--ink-soft); font-size: 13.5px; }
+  .guide-body h3 { color: var(--ink); font-size: 13px; font-family: var(--sans); margin: 16px 0 6px; }
+  .guide-body ol, .guide-body ul { margin: 6px 0; padding-left: 20px; }
+  .guide-body li { margin-bottom: 4px; }
+  .guide-body code { font-family: var(--mono); background: var(--paper); padding: 1px 5px; border-radius: 2px; font-size: 12px; }
+
+  footer.note { color: var(--ink-soft); font-size: 12px; padding: 20px 0 40px; border-top: 1px solid var(--line); margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="row">
+      <div class="brand">
+        <span class="mark">DeCA</span>
+        <div>
+          <h1>Generador de Documento electrónico de Control Administrativo</h1>
+          <div class="sub">PDF nativo con código QR para transporte público de mercancías por carretera.</div>
+        </div>
+      </div>
+      <div class="legal-tag">
+        <b>Resolución de 5 de junio de 2026</b> (BOE-A-2026-12784)<br>
+        Orden FOM/2861/2012, art. 6
+      </div>
+    </div>
+    <div class="deadline"><span class="dot"></span> Obligatorio en formato digital desde el 5 de octubre de 2026 — no hay periodo de gracia posterior.</div>
+  </header>
+
+  <main>
+    <details class="guide">
+      <summary>Cómo cumplir la normativa con esta herramienta (leer antes de usar)</summary>
+      <div class="guide-body">
+        <p>Esta aplicación genera el fichero PDF nativo con el código QR embebido, cumpliendo el apartado <b>Segundo</b> de la Resolución. Pero la norma también exige un <b>repositorio propio</b> con una <b>URL única en HTTPS</b> desde la que cualquier inspector pueda descargar el PDF sin iniciar sesión ni pulsar botones. Eso requiere un alojamiento web a tu nombre — aquí tienes cómo montarlo gratis en unos minutos:</p>
+        <h3>Opción recomendada: GitHub Pages (gratis, sin límite de tiempo)</h3>
+        <ol>
+          <li>Crea una cuenta gratuita en <code>github.com</code> y un repositorio público, por ejemplo <code>deca</code>.</li>
+          <li>En "Settings → Pages" activa GitHub Pages para la rama principal. Te dará una URL del tipo <code>https://tuusuario.github.io/deca/</code>.</li>
+          <li>Usa esa URL como "URL base del repositorio" en el formulario de la izquierda.</li>
+          <li>Cada vez que generes un DeCA, sube el PDF descargado a ese repositorio con el mismo nombre de archivo que verás en la vista previa. GitHub permite subir archivos arrastrándolos desde el navegador, sin necesidad de saber programar.</li>
+          <li>La URL final (la que lleva el QR) enlaza directamente al PDF y lo descarga sin pedir credenciales — cumple el apartado Tercero de la Resolución.</li>
+        </ol>
+        <h3>Alternativas igual de válidas</h3>
+        <ul>
+          <li><b>Cloudflare Pages</b> o <b>Netlify Drop</b>: arrastras una carpeta con tus PDF y obtienes una URL pública al instante, también gratis.</li>
+          <li><b>Tu propio hosting o web corporativa</b>, si ya tienes uno: basta con crear una carpeta <code>/deca/</code> pública.</li>
+        </ul>
+        <h3>Lo que ya resuelve esta herramienta</h3>
+        <ul>
+          <li>PDF generado de forma nativa digital (no escaneado), por debajo de 5&nbsp;MB.</li>
+          <li>Incluye los datos exigidos por el art. 6 de la Orden FOM/2861/2012.</li>
+          <li>Código QR embebido con la URL única del documento.</li>
+          <li>Nombre de archivo único y fecha/hora de creación como metadato del PDF.</li>
+          <li>Historial local de documentos generados, exportable, para ayudarte con la conservación de al menos un año (recomendamos igualmente guardar copia en tu repositorio o gestor documental).</li>
+        </ul>
+        <p>Esta herramienta es una ayuda práctica y no constituye asesoría jurídica. Antes del 5 de octubre, comprueba con un documento de prueba que la URL final descarga el PDF directamente en un navegador y en el móvil del conductor.</p>
+      </div>
+    </details>
+
+    <div class="grid">
+      <div>
+        <section class="card">
+          <h2>1 · Empresa</h2>
+          <p class="hint">Estos datos se guardan solo en este dispositivo para no repetirlos en cada documento.</p>
+          <div class="toggle-row">
+            <label><input type="checkbox" id="soyCargador"> Mi empresa es el cargador contractual</label>
+            <label><input type="checkbox" id="soyTransportista" checked> Mi empresa es la transportista efectiva</label>
+          </div>
+          <div class="fields">
+            <div class="field">
+              <label>Nombre o denominación social</label>
+              <input id="empNombre" type="text" placeholder="Transportes Ejemplo S.L.">
+            </div>
+            <div class="field">
+              <label>NIF</label>
+              <input id="empNif" type="text" placeholder="B12345678">
+            </div>
+            <div class="field span2">
+              <label>Domicilio</label>
+              <input id="empDomicilio" type="text" placeholder="Calle, número, municipio, provincia">
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>2 · Cargador contractual y transportista efectivo</h2>
+          <p class="hint">Si tu empresa no cubre ambos papeles, completa aquí el que falte (art. 6.a y 6.b).</p>
+          <div class="fields">
+            <div class="field">
+              <label>Cargador contractual — nombre/razón social</label>
+              <input id="cargNombre" type="text">
+            </div>
+            <div class="field">
+              <label>Cargador contractual — NIF</label>
+              <input id="cargNif" type="text">
+            </div>
+            <div class="field span2">
+              <label>Cargador contractual — domicilio</label>
+              <input id="cargDomicilio" type="text">
+            </div>
+            <div class="field">
+              <label>Transportista efectivo — nombre/razón social</label>
+              <input id="transNombre" type="text">
+            </div>
+            <div class="field">
+              <label>Transportista efectivo — NIF</label>
+              <input id="transNif" type="text">
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>3 · Datos del envío</h2>
+          <p class="hint">Un documento por envío (o varios envíos agrupados si cargador y transportista coinciden en todos).</p>
+          <div class="fields">
+            <div class="field">
+              <label>Lugar de origen</label>
+              <input id="origen" type="text" placeholder="Zaragoza, polígono...">
+            </div>
+            <div class="field">
+              <label>Lugar de destino</label>
+              <input id="destino" type="text" placeholder="Valencia, puerto...">
+            </div>
+            <div class="field">
+              <label>Naturaleza de la mercancía</label>
+              <input id="mercancia" type="text" placeholder="Palets de cerámica">
+            </div>
+            <div class="field">
+              <label>Peso</label>
+              <input id="peso" type="text" placeholder="12.500 kg">
+            </div>
+            <div class="field">
+              <label>Fecha de realización del transporte</label>
+              <input id="fechaTransporte" type="date">
+            </div>
+            <div class="field">
+              <label>Matrícula del vehículo</label>
+              <input id="matricula" type="text" placeholder="1234 ABC">
+            </div>
+            <div class="field">
+              <label>Matrícula semirremolque/remolque <span class="opt">(si aplica)</span></label>
+              <input id="matriculaRemolque" type="text">
+            </div>
+            <div class="field">
+              <label>Autorización especial de circulación <span class="opt">(si aplica)</span></label>
+              <input id="autorizacion" type="text">
+            </div>
+            <div class="field span2">
+              <label>Observaciones <span class="opt">(opcional)</span></label>
+              <textarea id="observaciones"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>4 · Repositorio y URL</h2>
+          <p class="hint">La URL debe empezar por https:// y permitir la descarga directa del PDF sin inicio de sesión (ver guía arriba).</p>
+          <div class="fields one">
+            <div class="field">
+              <label>URL base de tu repositorio</label>
+              <input id="urlBase" type="text" placeholder="https://tuusuario.github.io/deca/">
+            </div>
+            <div class="field">
+              <label>URL del backend de subida <span class="opt">(opcional — déjalo vacío para subir el PDF a mano)</span></label>
+              <input id="backendUrl" type="text" placeholder="https://deca-uploader.tuusuario.workers.dev">
+            </div>
+            <div class="field">
+              <label>Código de acceso <span class="opt">(el mismo que pusiste en el backend)</span></label>
+              <input id="backendSecret" type="password" placeholder="••••••••">
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" id="btnGenerar">Generar DeCA (PDF + QR)</button>
+            <button class="ghost" id="btnLimpiar">Limpiar envío</button>
+          </div>
+          <div class="msg" id="msgBox"></div>
+        </section>
+
+        <section class="card history">
+          <h2>Historial en este dispositivo</h2>
+          <p class="hint">Registro local de los DeCA generados. Exporta una copia periódicamente: no sustituye tu obligación de conservación de al menos un año.</p>
+          <div class="actions" style="margin-top:0 0 12px 0;">
+            <button class="ghost" id="btnExport">Exportar historial (CSV)</button>
+            <button class="ghost" id="btnClearHist">Vaciar historial</button>
+          </div>
+          <table>
+            <thead><tr><th>Fecha</th><th>Archivo</th><th>Origen → Destino</th><th>Matrícula</th><th></th></tr></thead>
+            <tbody id="histBody">
+              <tr class="empty-row"><td colspan="5">Todavía no has generado ningún DeCA.</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <div class="preview-sticky">
+        <section class="card" style="padding-bottom:18px;">
+          <h2>Vista previa</h2>
+          <p class="hint">Así quedará el contenido del PDF.</p>
+          <div class="doc" id="docPreview">
+            <div class="doc-head">
+              <div class="doc-title">DOCUMENTO ELECTRÓNICO DE CONTROL ADMINISTRATIVO</div>
+              <div class="doc-id" id="pvId">ID: pendiente de generar</div>
+            </div>
+            <div class="doc-sec"><div class="k">Cargador contractual</div><div class="v empty" id="pvCargador">—</div></div>
+            <div class="doc-sec"><div class="k">Transportista efectivo</div><div class="v empty" id="pvTransportista">—</div></div>
+            <div class="doc-sec"><div class="k">Origen → Destino</div><div class="v empty" id="pvRuta">—</div></div>
+            <div class="doc-sec"><div class="k">Mercancía / Peso</div><div class="v empty" id="pvMercancia">—</div></div>
+            <div class="doc-sec"><div class="k">Fecha transporte / Matrícula</div><div class="v empty" id="pvTransporte">—</div></div>
+            <div class="doc-qr">
+              <div id="qrHolder"></div>
+              <div class="url" id="pvUrl">La URL del documento aparecerá aquí al generarlo.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="note">
+    Herramienta gratuita e independiente, no oficial del Ministerio de Transportes. Consulta siempre la normativa vigente: Resolución de 5 de junio de 2026 (BOE-A-2026-12784) y Orden FOM/2861/2012. No sustituye asesoramiento legal.
+  </footer>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var storeKey = 'deca_empresa_perfil_v1';
+  var histKey = 'deca_historial_v1';
+
+  // ---- load saved company profile ----
+  try {
+    var saved = localStorage.getItem(storeKey);
+    if (saved) {
+      var p = JSON.parse(saved);
+      $('empNombre').value = p.nombre || '';
+      $('empNif').value = p.nif || '';
+      $('empDomicilio').value = p.domicilio || '';
+      $('soyCargador').checked = !!p.soyCargador;
+      $('soyTransportista').checked = p.soyTransportista !== false;
+      $('urlBase').value = p.urlBase || '';
+      $('backendUrl').value = p.backendUrl || '';
+      $('backendSecret').value = p.backendSecret || '';
+    }
+  } catch(e) {}
+
+  function saveProfile(){
+    try {
+      localStorage.setItem(storeKey, JSON.stringify({
+        nombre: $('empNombre').value,
+        nif: $('empNif').value,
+        domicilio: $('empDomicilio').value,
+        soyCargador: $('soyCargador').checked,
+        soyTransportista: $('soyTransportista').checked,
+        urlBase: $('urlBase').value,
+        backendUrl: $('backendUrl').value,
+        backendSecret: $('backendSecret').value
+      }));
+    } catch(e) {}
+  }
+
+  function syncRoles(){
+    var nombre = $('empNombre').value, nif = $('empNif').value, dom = $('empDomicilio').value;
+    if ($('soyCargador').checked) {
+      $('cargNombre').value = nombre; $('cargNif').value = nif; $('cargDomicilio').value = dom;
+      $('cargNombre').disabled = true; $('cargNif').disabled = true; $('cargDomicilio').disabled = true;
+    } else {
+      $('cargNombre').disabled = false; $('cargNif').disabled = false; $('cargDomicilio').disabled = false;
+    }
+    if ($('soyTransportista').checked) {
+      $('transNombre').value = nombre; $('transNif').value = nif;
+      $('transNombre').disabled = true; $('transNif').disabled = true;
+    } else {
+      $('transNombre').disabled = false; $('transNif').disabled = false;
+    }
+    updatePreview();
+  }
+  ['empNombre','empNif','empDomicilio','soyCargador','soyTransportista','urlBase','backendUrl','backendSecret'].forEach(function(id){
+    $(id).addEventListener('input', function(){ saveProfile(); syncRoles(); });
+    $(id).addEventListener('change', function(){ saveProfile(); syncRoles(); });
+  });
+
+  var previewFields = ['cargNombre','cargNif','cargDomicilio','transNombre','transNif','origen','destino','mercancia','peso','fechaTransporte','matricula','matriculaRemolque','autorizacion','observaciones'];
+  previewFields.forEach(function(id){
+    $(id).addEventListener('input', updatePreview);
+  });
+
+  function val(id){ return ($(id).value || '').trim(); }
+  function setPv(id, text){
+    var el = $(id);
+    if (text) { el.textContent = text; el.classList.remove('empty'); }
+    else { el.textContent = '—'; el.classList.add('empty'); }
+  }
+
+  function updatePreview(){
+    var cargador = [val('cargNombre'), val('cargNif') ? 'NIF ' + val('cargNif') : ''].filter(Boolean).join(' · ');
+    var transportista = [val('transNombre'), val('transNif') ? 'NIF ' + val('transNif') : ''].filter(Boolean).join(' · ');
+    setPv('pvCargador', cargador);
+    setPv('pvTransportista', transportista);
+    var ruta = (val('origen') || val('destino')) ? (val('origen') || '—') + '  →  ' + (val('destino') || '—') : '';
+    setPv('pvRuta', ruta);
+    var merc = [val('mercancia'), val('peso')].filter(Boolean).join(' · ');
+    setPv('pvMercancia', merc);
+    var trans = [val('fechaTransporte'), val('matricula')].filter(Boolean).join(' · ');
+    setPv('pvTransporte', trans);
+  }
+
+  function uid(){
+    var d = new Date();
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    var stamp = '' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate());
+    var rand = Math.random().toString(36).slice(2,8).toUpperCase();
+    return 'DECA-' + stamp + '-' + rand;
+  }
+
+  function showMsg(text, kind){
+    var box = $('msgBox');
+    box.textContent = text;
+    box.className = 'msg show ' + kind;
+  }
+
+  function buildUrl(base, filename){
+    if (!base) return '';
+    if (base.indexOf('http') !== 0) base = 'https://' + base;
+    if (base.charAt(base.length-1) !== '/') base += '/';
+    return base + filename;
+  }
+
+  function renderQr(container, text, cb){
+    container.innerHTML = '';
+    // eslint-disable-next-line no-new
+    new QRCode(container, { text: text, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+    setTimeout(function(){
+      var canvas = container.querySelector('canvas');
+      var dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+      cb(dataUrl);
+    }, 60);
+  }
+
+  function loadHistory(){
+    try { return JSON.parse(localStorage.getItem(histKey) || '[]'); } catch(e) { return []; }
+  }
+  function saveHistory(list){
+    try { localStorage.setItem(histKey, JSON.stringify(list)); } catch(e) {}
+  }
+  function renderHistory(){
+    var list = loadHistory();
+    var body = $('histBody');
+    if (!list.length) {
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Todavía no has generado ningún DeCA.</td></tr>';
+      return;
+    }
+    body.innerHTML = list.slice().reverse().map(function(item){
+      return '<tr>' +
+        '<td class="mono">' + item.fecha + '</td>' +
+        '<td class="mono">' + item.archivo + '</td>' +
+        '<td>' + item.ruta + '</td>' +
+        '<td class="mono">' + item.matricula + '</td>' +
+        '<td class="row-actions"><button class="ghost" data-url="' + (item.url||'') + '">Copiar URL</button></td>' +
+        '</tr>';
+    }).join('');
+    body.querySelectorAll('button[data-url]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var u = btn.getAttribute('data-url');
+        if (!u) { return; }
+        navigator.clipboard && navigator.clipboard.writeText(u).catch(function(){});
+        btn.textContent = 'Copiada';
+        setTimeout(function(){ btn.textContent = 'Copiar URL'; }, 1200);
+      });
+    });
+  }
+  renderHistory();
+
+  $('btnExport').addEventListener('click', function(){
+    var list = loadHistory();
+    var rows = [['fecha','archivo','origen','destino','mercancia','peso','matricula','url']];
+    list.forEach(function(i){ rows.push([i.fecha, i.archivo, i.origenTxt||'', i.destinoTxt||'', i.mercanciaTxt||'', i.pesoTxt||'', i.matricula, i.url||'']); });
+    var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'historial-deca.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+  $('btnClearHist').addEventListener('click', function(){
+    if (confirm('¿Vaciar el historial guardado en este dispositivo?')) {
+      saveHistory([]); renderHistory();
+    }
+  });
+
+  $('btnLimpiar').addEventListener('click', function(){
+    ['origen','destino','mercancia','peso','fechaTransporte','matricula','matriculaRemolque','autorizacion','observaciones'].forEach(function(id){ $(id).value = ''; });
+    updatePreview();
+    showMsg('Datos del envío borrados.', 'ok');
+  });
+
+  $('btnGenerar').addEventListener('click', function(){
+    var missing = [];
+    if (!val('cargNombre')) missing.push('cargador (nombre)');
+    if (!val('cargNif')) missing.push('cargador (NIF)');
+    if (!val('transNombre')) missing.push('transportista (nombre)');
+    if (!val('transNif')) missing.push('transportista (NIF)');
+    if (!val('origen')) missing.push('origen');
+    if (!val('destino')) missing.push('destino');
+    if (!val('mercancia')) missing.push('mercancía');
+    if (!val('peso')) missing.push('peso');
+    if (!val('fechaTransporte')) missing.push('fecha de transporte');
+    if (!val('matricula')) missing.push('matrícula');
+    if (!val('urlBase')) missing.push('URL base del repositorio');
+    if (missing.length) {
+      showMsg('Faltan datos obligatorios: ' + missing.join(', ') + '.', 'err');
+      return;
+    }
+
+    var id = uid();
+    var filename = id + '.pdf';
+    var url = buildUrl(val('urlBase'), filename);
+    $('pvId').textContent = 'ID: ' + id;
+    $('pvUrl').textContent = url;
+
+    renderQr($('qrHolder'), url, function(qrDataUrl){
+      try {
+        var jsPDF = window.jspdf.jsPDF;
+        var doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        var pageW = 210, margin = 18, y = 22;
+
+        doc.setProperties({
+          title: 'DeCA ' + id,
+          subject: 'Documento electrónico de Control Administrativo',
+          creator: 'Generador DeCA',
+          keywords: 'DeCA, transporte, control administrativo'
+        });
+
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+        doc.text('DOCUMENTO ELECTRÓNICO DE CONTROL ADMINISTRATIVO', margin, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+        doc.setTextColor(90,90,90);
+        doc.text('DeCA — Orden FOM/2861/2012, art. 6 · Resolución de 5 de junio de 2026 (BOE-A-2026-12784)', margin, y);
+        y += 4;
+        doc.text('Identificador: ' + id + '   ·   Generado: ' + new Date().toLocaleString('es-ES'), margin, y);
+        doc.setTextColor(20,20,20);
+        y += 10;
+
+        function section(title){
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+          doc.text(title, margin, y);
+          y += 1.5;
+          doc.setDrawColor(210,210,210);
+          doc.line(margin, y, pageW - margin, y);
+          y += 5.5;
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+        }
+        function line(label, value){
+          if (!value) return;
+          doc.setTextColor(110,110,110);
+          doc.text(label, margin, y);
+          doc.setTextColor(20,20,20);
+          var lines = doc.splitTextToSize(String(value), pageW - margin*2 - 55);
+          doc.text(lines, margin + 55, y);
+          y += Math.max(5.5, lines.length * 4.6);
+        }
+
+        section('a) Cargador contractual');
+        line('Nombre / razón social', val('cargNombre'));
+        line('NIF', val('cargNif'));
+        line('Domicilio', val('cargDomicilio'));
+        y += 2;
+
+        section('b) Transportista efectivo');
+        line('Nombre / razón social', val('transNombre'));
+        line('NIF', val('transNif'));
+        y += 2;
+
+        section('c-d) Envío y mercancía');
+        line('Lugar de origen', val('origen'));
+        line('Lugar de destino', val('destino'));
+        line('Naturaleza de la mercancía', val('mercancia'));
+        line('Peso', val('peso'));
+        y += 2;
+
+        section('e-g) Transporte');
+        line('Fecha del transporte', val('fechaTransporte'));
+        line('Matrícula del vehículo', val('matricula'));
+        line('Matrícula semirremolque/remolque', val('matriculaRemolque'));
+        line('Autorización especial de circulación', val('autorizacion'));
+        y += 2;
+
+        if (val('observaciones')) {
+          section('h) Observaciones');
+          var obsLines = doc.splitTextToSize(val('observaciones'), pageW - margin*2);
+          doc.text(obsLines, margin, y);
+          y += obsLines.length * 4.6 + 2;
+        }
+
+        y += 4;
+        if (qrDataUrl) {
+          doc.addImage(qrDataUrl, 'PNG', margin, y, 32, 32);
+        }
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+        doc.setTextColor(90,90,90);
+        doc.text('Documento accesible en:', margin + 36, y + 8);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+        doc.setTextColor(20,20,20);
+        var urlLines = doc.splitTextToSize(url, pageW - margin*2 - 36);
+        doc.text(urlLines, margin + 36, y + 13);
+
+        var pdfBlob = doc.output('blob');
+
+        function recordAndReport(msgText, kind){
+          var list = loadHistory();
+          list.push({
+            fecha: new Date().toLocaleString('es-ES'),
+            archivo: filename,
+            ruta: val('origen') + ' → ' + val('destino'),
+            origenTxt: val('origen'), destinoTxt: val('destino'),
+            mercanciaTxt: val('mercancia'), pesoTxt: val('peso'),
+            matricula: val('matricula'),
+            url: url
+          });
+          saveHistory(list);
+          renderHistory();
+          showMsg(msgText, kind);
+        }
+
+        var backendUrlVal = val('backendUrl');
+
+        function saveLocally(){
+          return getDownloadsCapability().then(function(downloads){
+            if (downloads) {
+              return downloads.save({ filename: filename, data: pdfBlob }).then(function(){ return true; });
+            }
+            // Fuera del visor de Claude (app instalada, PWA, navegador normal): descarga estándar.
+            var objUrl = URL.createObjectURL(pdfBlob);
+            var a = document.createElement('a');
+            a.href = objUrl; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function(){ URL.revokeObjectURL(objUrl); }, 4000);
+            return true;
+          });
+        }
+
+        function blobToBase64(blob){
+          return new Promise(function(resolve, reject){
+            var reader = new FileReader();
+            reader.onloadend = function(){ resolve(String(reader.result).split(',')[1] || ''); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        if (backendUrlVal) {
+          blobToBase64(pdfBlob).then(function(base64){
+            return fetch(backendUrlVal, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: filename, pdfBase64: base64, token: val('backendSecret') })
+            });
+          }).then(function(res){
+            return res.json().catch(function(){ return {}; }).then(function(data){ return { ok: res.ok, data: data }; });
+          }).then(function(result){
+            if (!result.ok) {
+              var errCode = (result.data && result.data.error) || 'error';
+              showMsg('El PDF se generó pero no se pudo subir automáticamente (' + errCode + '). Descárgalo y súbelo a mano esta vez.', 'err');
+              return saveLocally().then(function(){
+                recordAndReport('PDF descargado como ' + filename + '. Súbelo a tu repositorio a mano.', 'err');
+              });
+            }
+            return saveLocally().then(function(){
+              recordAndReport('DeCA generado y subido automáticamente como ' + filename + '. El QR ya es válido.', 'ok');
+            });
+          }).catch(function(){
+            showMsg('No se pudo contactar con el backend de subida. Comprueba la URL o inténtalo de nuevo.', 'err');
+            saveLocally().then(function(){
+              recordAndReport('PDF descargado como ' + filename + '. Súbelo a tu repositorio a mano.', 'err');
+            });
+          });
+        } else {
+          saveLocally().then(function(){
+            recordAndReport('PDF generado y descargado como ' + filename + '. Súbelo ahora a tu repositorio con ese mismo nombre para que el QR funcione.', 'ok');
+          }).catch(function(dlErr){
+            var code = dlErr && dlErr.code;
+            if (code === 'declined') {
+              showMsg('Descarga cancelada. Pulsa "Generar DeCA" de nuevo cuando quieras guardarlo.', 'err');
+            } else {
+              showMsg('No se pudo guardar el PDF. Vuelve a intentarlo en unos segundos.', 'err');
+            }
+          });
+        }
+      } catch (err) {
+        showMsg('No se pudo generar el PDF: ' + err.message, 'err');
+      }
+    });
+  });
+
+  function getDownloadsCapability(){
+    if (!window.claude || typeof window.claude.use !== 'function') {
+      return Promise.resolve(null);
+    }
+    return window.claude.use('downloads').catch(function(){ return null; });
+  }
+
+  syncRoles();
+
+  if ('serviceWorker' in navigator && window.location.protocol !== 'blob:') {
+    try { navigator.serviceWorker.register('./service-worker.js'); } catch(e) {}
+  }
+})();
+</script>
+</body>
+</html>
